@@ -30,6 +30,6 @@ For Tiny-ImageNet, please download the following datasets to ./data/tiny_imagene
 ---
 
 ## Training & Evaluation
--Running the code: Simply run the main file.
--Dataset settings：datasetName='cifar10'.   Change the dataset here.  
--Dataset partitioning ['a','b','c','d','e']: for x in ['a']:
+- Running the code: Simply run the main file.
+- Dataset settings：datasetName='cifar10'.   Change the dataset here.  
+- Dataset partitioning ['a','b','c','d','e']: for x in ['a']:
