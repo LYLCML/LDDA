@@ -1,6 +1,5 @@
 # Learning Discriminative Directional Anchors for Open-Set Recognition (LDDA)
 
-Official PyTorch implementation of **Learning Discriminative Directional Anchors for Open-Set Recognition (LDDA)**.
 
 ---
 
