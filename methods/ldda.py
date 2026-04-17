@@ -44,6 +44,7 @@ class LDDAMethod:
         running_loss = AverageMeter()
         self.model.train()
         endtime = time.time()
+        aaaa=time.time()
         for i, data in enumerate(tqdm.tqdm(self.wrap_loader)):
             data_time.update(time.time() - endtime)
             self.lr = self.lr_schedule.get_lr(self.epoch, i, self.lr)
@@ -54,8 +55,8 @@ class LDDAMethod:
                 loss = loss + 0.1* lossp
             if flag == 0:
                 loss = loss + 0.1* lossp
-                self.model.backbone_cs.cat_cls.anchors.requires_grad_(False)
-                self.model.backbone_cs.cat_cls.direction.requires_grad_(False)
+                self.model.backbone_cs.ldda_cls.anchors.requires_grad_(False)
+                self.model.backbone_cs.ldda_cls.direction.requires_grad_(False)
             self.modelopt.zero_grad()
             loss.backward()
             self.modelopt.step()
@@ -64,6 +65,8 @@ class LDDAMethod:
             running_loss.update(loss.item())
             batch_time.update(time.time() - endtime)
             endtime = time.time()
+        bbb = time.time() - aaaa
+        print(bbb)
         self.epoch += 1
         training_res = \
             {"Loss": running_loss.avg,
@@ -158,6 +161,7 @@ class Encoder(nn.Module):
         self.extra_layer = layer_block(inchannel, hidd)
         self.latent_conv = layer_block(hidd, latent_chan)
 
+
     def forward(self, x):
         output = x
         output = self.extra_layer(output)
@@ -177,6 +181,7 @@ class LDDAClassifier(nn.Module):
         self.class_enc = nn.ModuleList(self.class_enc)
         self.anchors = nn.Parameter(torch.zeros(num_class, en_latent, en_H_W, en_H_W))
         self.direction = nn.Parameter(torch.randn(num_class, en_latent, en_H_W, en_H_W))
+        self.register_buffer('R_c', torch.tensor(config['R_c']))
 
     def direction_dispersion_loss(self, O, P):
         C = P.shape[0]
@@ -203,16 +208,12 @@ class LDDAClassifier(nn.Module):
         lts = []
 
         for c in range(len(self.class_enc)):
-            lt = self.class_enc[c](x)
+            lt = self.class_enc[0](x)
             lts.append(lt)
             cls_er = self.directional_distance(lt, self.anchors[c], self.direction[c])
             if self.training:
-                same_class_mask = (ycls == c)
-                cls_er = torch.where(
-                    same_class_mask.unsqueeze(1),
-                    cls_er,
-                    torch.clamp(cls_er, max=100)
-                )
+                cls_er = torch.clamp(cls_er, max=self.R_c, min=-self.R_c)
+
             cls_ers.append(cls_er)
             lts.append(lt)
         logits = torch.cat(cls_ers, dim=1)
@@ -227,6 +228,7 @@ class BackboneAndClassifier(nn.Module):
         super().__init__()
         self.backbone = Backbone_method.Backbone(config, 3)
         ldda_config = config['ldda_model']
+        ldda_config["R_c"] = config['R_c']
         self.ldda_cls = LDDAClassifier(self.backbone.output_dim, num_classes, ldda_config)
 
     def forward(self, x, ycls, feature_only=False):
