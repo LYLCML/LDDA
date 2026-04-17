@@ -18,12 +18,12 @@ def training_main():
     for epoch in range(mth.epoch, tot_epoch):
         sys.stdout.flush()
         losses = mth.train_epoch(flag)
-        if epoch >= 200:
+        if epoch >= 140:
             flag = 0
         if epoch % 1 == 0:
             save_everything(f'ckpt{epoch}')
 
-        if epoch >= 205:
+        if (epoch % 10 == 0) or (epoch == tot_epoch - 1) or (epoch>200):
             scores, thresh, pred = mth.knownpred_unknwonscore_test(
                 test_loader)
             acc = evaluation.close_accuracy(pred)
@@ -105,54 +105,57 @@ def set_up_gpu(args):
 
 
 if __name__ == "__main__":
-    datasetName='cifar10'
+    datasetName='imagenet'
     for x in ['a']:
-        print(str(x) + "    --------------------------------  "+str(x) )
-        import torch
+        for R in [8]:
+            print(str(x) + "    --------------------------------  " + str(R))
+            import torch
 
-        torch.backends.cudnn.benchmark = True
-        parser = argparse.ArgumentParser()
-        parser.add_argument('--method', type=str, required=False, default="ldda",
-                            help='Methods : ' + ",".join(util.method_list.keys()))
-        parser.add_argument('--test', action="store_true", help='Evaluation mode')
-        parser.add_argument('--configupdate', type=str, required=False, default="",
-                            help='Update several key values in config')
-        parser.add_argument('--test_interval', type=int, required=False, default=1,
-                            help='The frequency of model evaluation')
-        parser.add_argument('--gpu', type=str, required=False, default="0", help='GPU number')
-        parser.add_argument('--ds', type=str, required=False,
-                            default="./split/" + datasetName + "/spl_" + x + ".json",
-                            help='dataset setting, choose file from ./exps')
-        parser.add_argument('--config', type=str, required=False,
-                            default="./configs/" + datasetName + ".json",
-                            help='model configuration, choose from ./configs')
-        parser.add_argument('--save', type=str, required=False, default="/" + datasetName + "/" + x + "_m5",
-                            help='Saving folder name')
+            torch.backends.cudnn.benchmark = True
+            parser = argparse.ArgumentParser()
+            parser.add_argument('--method', type=str, required=False, default="ldda",
+                                help='Methods : ' + ",".join(util.method_list.keys()))
+            parser.add_argument('--test', action="store_true", help='Evaluation mode')
+            parser.add_argument('--configupdate', type=str, required=False, default="",
+                                help='Update several key values in config')
+            parser.add_argument('--test_interval', type=int, required=False, default=1,
+                                help='The frequency of model evaluation')
+            parser.add_argument('--gpu', type=str, required=False, default="0", help='GPU number')
+            parser.add_argument('--ds', type=str, required=False,
+                                default="./split/" + datasetName + "/spl_" + x + ".json",
+                                help='dataset setting, choose file from ./exps')
+            parser.add_argument('--config', type=str, required=False,
+                                default="./configs/" + datasetName + ".json",
+                                help='model configuration, choose from ./configs')
+            parser.add_argument('--save', type=str, required=False, default="/" + datasetName + "/" + x + "_m5",
+                                help='Saving folder name')
 
-        args = parser.parse_args()
-        test_interval = args.test_interval
-        if not args.save.endswith("/"):
-            args.save += "/"
-        set_up_gpu(args)
-        if args.config != "None":
-            config = load_config(args.config)
-        else:
-            config = {}
-        config = update_config_keyvalues(config, args.configupdate)
-        args.bs = config['batch_size']
-        saving_path = "./save/" + args.save
-        util.setup_dir(saving_path)
-        saving_path = saving_path + "_"
-        train_loader, test_loader, classnum = dataset.load_partitioned_dataset(args, args.ds)
-        mth = util.method_list[args.method](config, classnum, train_loader.dataset)
+            args = parser.parse_args()
+            test_interval = args.test_interval
+            if not args.save.endswith("/"):
+                args.save += "/"
+            set_up_gpu(args)
+            if args.config != "None":
+                config = load_config(args.config)
+            else:
+                config = {}
+            config["R_c"] = R
+            config = update_config_keyvalues(config, args.configupdate)
+            args.bs = config['batch_size']
+            saving_path = "./save/" + args.save
+            util.setup_dir(saving_path)
+            saving_path = saving_path + "_"+str(R)
+            train_loader, test_loader, classnum = dataset.load_partitioned_dataset(args, args.ds)
+            mth = util.method_list[args.method](config, classnum, train_loader.dataset)
 
-        history = []
-        evaluation = metrics.OSREvaluation(test_loader)
+            history = []
+            evaluation = metrics.OSREvaluation(test_loader)
 
-        if not args.test:
-            print(f"TotalEpochs:{config['epoch_num']}")
-            training_main()
-            save_everything()
+            if not args.test:
+                print(f"TotalEpochs:{config['epoch_num']}")
+                training_main()
+                save_everything()
+
 
 
 
